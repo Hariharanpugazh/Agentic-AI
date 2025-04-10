@@ -3,25 +3,28 @@ import { ChevronDown, ChevronUp, Copy, ExternalLink, Moon, Sun } from "lucide-re
 import "./index.css";
 
 interface ReviewData {
-  review: Record<string, string>;
+  review: Record<string, {
+    correctness: { groq: string; gemini: string };
+    readability: { groq: string; gemini: string };
+    docstring: { groq: string; gemini: string };
+    security: { groq: string; gemini: string };
+    performance: { groq: string; gemini: string };
+    structure: { groq: string; gemini: string };
+    error_handling: { groq: string; gemini: string };
+    test_coverage: { groq: string; gemini: string };
+  }>;
 }
 
 interface ParsedReview {
   filename: string;
-  groq: {
-    bugs: string[];
-    codeStyle: string[];
-    security: string[];
-    suggestions: string[];
-  };
-  gemini: {
-    bugs: string[];
-    codeStyle: string[];
-    security: string[];
-    suggestions: string[];
-    codeBlocks: string[];
-    explanation: string;
-  };
+  correctness: { groq: string[]; gemini: string[] };
+  readability: { groq: string[]; gemini: string[] };
+  docstring: { groq: string[]; gemini: string[] };
+  security: { groq: string[]; gemini: string[] };
+  performance: { groq: string[]; gemini: string[] };
+  structure: { groq: string[]; gemini: string[] };
+  error_handling: { groq: string[]; gemini: string[] };
+  test_coverage: { groq: string[]; gemini: string[] };
 }
 
 function App() {
@@ -31,11 +34,12 @@ function App() {
     }
     return false;
   });
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [repoUrl, setRepoUrl] = useState("");
   const [parsedReviews, setParsedReviews] = useState<ParsedReview[]>([]);
   const [expandedSections, setExpandedSections] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<string | null>(null);
+  const [progress, setProgress] = useState(0);
 
   useEffect(() => {
     if (darkMode) {
@@ -50,12 +54,14 @@ function App() {
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
+      setProgress(30); // Simulate progress
       try {
         const response = await fetch("http://localhost:8000/review/review_repo/", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ repo_url: repoUrl }),
         });
+        setProgress(60); // Simulate progress
         const data: ReviewData = await response.json();
         const parsed = parseReviewData(data);
         setParsedReviews(parsed);
@@ -67,6 +73,7 @@ function App() {
         console.error("Error fetching review data:", error);
       } finally {
         setLoading(false);
+        setProgress(100); // Complete progress
       }
     };
 
@@ -79,101 +86,45 @@ function App() {
     const reviews: ParsedReview[] = [];
 
     Object.entries(data.review).forEach(([filename, content]) => {
-      const groqSection = content.split("==== GROQ REVIEW ====")[1]?.split("==== GEMINI REVIEW ====")[0] || "";
-      const geminiSection = content.split("==== GEMINI REVIEW ====")[1] || "";
-
-      const groqBugs = extractSection(groqSection, "Bugs or Errors");
-      const groqCodeStyle = extractSection(groqSection, "Code Style");
-      const groqSecurity = extractSection(groqSection, "Security Concerns");
-      const groqSuggestions = extractSection(groqSection, "Suggestions for Improvement");
-
-      const geminiCodeBlocks = extractCodeBlocks(geminiSection);
-      const geminiExplanation = extractExplanation(geminiSection);
-
-      let geminiBugs: string[] = [];
-      let geminiCodeStyle: string[] = [];
-      let geminiSecurity: string[] = [];
-      let geminiSuggestions: string[] = [];
-
-      if (geminiSection.includes("**Bugs") || geminiSection.includes("**Code Style") || geminiSection.includes("**Security") || geminiSection.includes("**Suggestions")) {
-        geminiBugs = extractSection(geminiSection, "Bugs or Errors");
-        geminiCodeStyle = extractSection(geminiSection, "Code Style");
-        geminiSecurity = extractSection(geminiSection, "Security Concerns");
-        geminiSuggestions = extractSection(geminiSection, "Suggestions for Improvement");
-      } else {
-        const securityKeywords = ["security", "vulnerability", "api key", "exposed", "credentials"];
-        const bugsKeywords = ["bug", "error", "fix", "issue", "problem", "incorrect"];
-        const styleKeywords = ["style", "formatting", "readability", "maintainability", "naming"];
-        const suggestionsKeywords = ["suggestion", "improvement", "enhance", "better", "consider"];
-
-        const explanationPoints = geminiExplanation.split(/\n\s*\*\s*|\n\s*\d+\.\s*/).filter(Boolean);
-
-        explanationPoints.forEach((point) => {
-          const pointLower = point.toLowerCase();
-
-          if (securityKeywords.some((keyword) => pointLower.includes(keyword))) {
-            geminiSecurity.push(point);
-          } else if (bugsKeywords.some((keyword) => pointLower.includes(keyword))) {
-            geminiBugs.push(point);
-          } else if (styleKeywords.some((keyword) => pointLower.includes(keyword))) {
-            geminiCodeStyle.push(point);
-          } else if (suggestionsKeywords.some((keyword) => pointLower.includes(keyword))) {
-            geminiSuggestions.push(point);
-          } else {
-            geminiSuggestions.push(point);
-          }
-        });
-      }
-
-      reviews.push({
+      const review = {
         filename,
-        groq: {
-          bugs: groqBugs,
-          codeStyle: groqCodeStyle,
-          security: groqSecurity,
-          suggestions: groqSuggestions,
+        correctness: {
+          groq: content.correctness.groq.split("\n").filter(Boolean),
+          gemini: content.correctness.gemini.split("\n").filter(Boolean),
         },
-        gemini: {
-          bugs: geminiBugs,
-          codeStyle: geminiCodeStyle,
-          security: geminiSecurity,
-          suggestions: geminiSuggestions,
-          codeBlocks: geminiCodeBlocks,
-          explanation: geminiExplanation,
+        readability: {
+          groq: content.readability.groq.split("\n").filter(Boolean),
+          gemini: content.readability.gemini.split("\n").filter(Boolean),
         },
-      });
+        docstring: {
+          groq: content.docstring.groq.split("\n").filter(Boolean),
+          gemini: content.docstring.gemini.split("\n").filter(Boolean),
+        },
+        security: {
+          groq: content.security.groq.split("\n").filter(Boolean),
+          gemini: content.security.gemini.split("\n").filter(Boolean),
+        },
+        performance: {
+          groq: content.performance.groq.split("\n").filter(Boolean),
+          gemini: content.performance.gemini.split("\n").filter(Boolean),
+        },
+        structure: {
+          groq: content.structure.groq.split("\n").filter(Boolean),
+          gemini: content.structure.gemini.split("\n").filter(Boolean),
+        },
+        error_handling: {
+          groq: content.error_handling.groq.split("\n").filter(Boolean),
+          gemini: content.error_handling.gemini.split("\n").filter(Boolean),
+        },
+        test_coverage: {
+          groq: content.test_coverage.groq.split("\n").filter(Boolean),
+          gemini: content.test_coverage.gemini.split("\n").filter(Boolean),
+        },
+      };
+      reviews.push(review);
     });
 
     return reviews;
-  };
-
-  const extractSection = (content: string, sectionName: string): string[] => {
-    const sectionRegex = new RegExp(`\\*\\*${sectionName}:\\*\\*([\\s\\S]*?)(?=\\*\\*|$)`, "i");
-    const match = content.match(sectionRegex);
-
-    if (!match) return [];
-
-    return match[1]
-      .split(/\n\s*\d+\.\s*|\n\s*\*\s*/)
-      .map((item) => item.trim())
-      .filter(Boolean);
-  };
-
-  const extractCodeBlocks = (content: string): string[] => {
-    const codeBlockRegex = /```(?:python)?([\s\S]*?)```/g;
-    const codeBlocks: string[] = [];
-    let match;
-
-    while ((match = codeBlockRegex.exec(content)) !== null) {
-      codeBlocks.push(match[1].trim());
-    }
-
-    return codeBlocks;
-  };
-
-  const extractExplanation = (content: string): string => {
-    const parts = content.split(/```(?:python)?[\s\S]*?```/);
-    return parts[parts.length - 1].trim();
   };
 
   const toggleSection = (sectionId: string) => {
@@ -193,15 +144,18 @@ function App() {
     return formatted;
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
+
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "Enter") {
+      setRepoUrl(event.currentTarget.value);
+    }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 text-gray-900 dark:text-gray-100 transition-colors duration-200">
-      <header className="sticky top-0 z-10 backdrop-blur-md bg-white/80 dark:bg-gray-900/80 border-b border-gray-200 dark:border-gray-700 shadow-sm">
+    <div className="min-h-screen bg-white dark:bg-black text-black dark:text-white transition-colors duration-300">
+      <header className="sticky top-0 z-10 backdrop-blur-md bg-white/90 dark:bg-black/90 border-b border-gray-200 dark:border-gray-700 shadow-sm">
         <div className="container mx-auto px-4 py-4 flex justify-between items-center">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-purple-600 to-blue-500 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold text-black dark:text-white">
             Code Review Dashboard
           </h1>
 
@@ -211,11 +165,12 @@ function App() {
                 type="text"
                 value={repoUrl}
                 onChange={(e) => setRepoUrl(e.target.value)}
+                onKeyPress={handleKeyPress}
                 placeholder="Enter repository URL"
-                className="w-64 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="w-64 px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-black focus:outline-none focus:ring-2 focus:ring-gray-500"
               />
               <button
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-purple-500 dark:hover:text-purple-400"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300"
                 onClick={() => {
                   /* Trigger review */
                 }}
@@ -238,20 +193,28 @@ function App() {
       <main className="container mx-auto px-4 py-8">
         {loading ? (
           <div className="flex flex-col items-center justify-center h-64">
-            <div className="w-16 h-16 border-4 border-gray-300 dark:border-gray-700 border-t-purple-500 rounded-full animate-spin"></div>
+            <div className="w-16 h-16 border-4 border-gray-300 dark:border-gray-700 border-t-black rounded-full animate-spin"></div>
             <p className="mt-4 text-lg text-gray-600 dark:text-gray-400">Analyzing code...</p>
+            <div className="mt-4 w-full bg-gray-200 dark:bg-gray-700 h-2 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 text-xs text-white text-center"
+                style={{ width: `${progress}%` }}
+              >
+                {progress}%
+              </div>
+            </div>
           </div>
         ) : (
           <>
             {parsedReviews.length > 0 && (
               <div className="mb-6 border-b border-gray-200 dark:border-gray-700 overflow-x-auto">
-                <div className="flex">
+                <div className="flex space-x-4">
                   {parsedReviews.map((review) => (
                     <button
                       key={review.filename}
                       className={`px-4 py-2 font-medium text-sm transition-colors ${
                         activeTab === review.filename
-                          ? "border-b-2 border-purple-500 text-purple-600 dark:text-purple-400"
+                          ? "border-b-2 border-black text-black dark:text-white"
                           : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200"
                       }`}
                       onClick={() => setActiveTab(review.filename)}
@@ -277,46 +240,28 @@ function App() {
 
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div className="flex flex-col h-full">
-                          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
-                            <div className="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3">
-                              <h3 className="text-white font-bold text-lg">GROQ Review</h3>
+                          <div className="bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
+                            <div className="bg-black text-white px-4 py-3">
+                              <h3 className="font-bold text-lg">Correctness Review</h3>
                             </div>
 
                             <div className="p-4 space-y-4">
                               <Section
-                                title="Bugs or Errors"
-                                icon="🐞"
-                                content={review.groq.bugs}
+                                title="GROQ"
+                                icon="🔍"
+                                content={review.correctness.groq}
                                 expandedSections={expandedSections}
                                 toggleSection={toggleSection}
-                                sectionId={`groq-bugs-${review.filename}`}
+                                sectionId={`groq-correctness-${review.filename}`}
                                 formatContent={formatContent}
                               />
                               <Section
-                                title="Code Style"
-                                icon="🧼"
-                                content={review.groq.codeStyle}
+                                title="GEMINI"
+                                icon="🔍"
+                                content={review.correctness.gemini}
                                 expandedSections={expandedSections}
                                 toggleSection={toggleSection}
-                                sectionId={`groq-style-${review.filename}`}
-                                formatContent={formatContent}
-                              />
-                              <Section
-                                title="Security Concerns"
-                                icon="🔐"
-                                content={review.groq.security}
-                                expandedSections={expandedSections}
-                                toggleSection={toggleSection}
-                                sectionId={`groq-security-${review.filename}`}
-                                formatContent={formatContent}
-                              />
-                              <Section
-                                title="Suggestions for Improvement"
-                                icon="✅"
-                                content={review.groq.suggestions}
-                                expandedSections={expandedSections}
-                                toggleSection={toggleSection}
-                                sectionId={`groq-suggestions-${review.filename}`}
+                                sectionId={`gemini-correctness-${review.filename}`}
                                 formatContent={formatContent}
                               />
                             </div>
@@ -324,50 +269,202 @@ function App() {
                         </div>
 
                         <div className="flex flex-col h-full">
-                          <div className="bg-white dark:bg-gray-900 rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
-                            <div className="bg-gradient-to-r from-purple-500 to-purple-600 px-4 py-3">
-                              <h3 className="text-white font-bold text-lg">GEMINI Review</h3>
+                          <div className="bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
+                            <div className="bg-black text-white px-4 py-3">
+                              <h3 className="font-bold text-lg">Readability Review</h3>
                             </div>
 
                             <div className="p-4 space-y-4">
-                              {review.gemini.codeBlocks.length > 0 && (
-                                <Section
-                                  title="Improved Code"
-                                  icon="📝"
-                                  content={review.gemini.codeBlocks}
-                                  expandedSections={expandedSections}
-                                  toggleSection={toggleSection}
-                                  sectionId={`gemini-code-${review.filename}`}
-                                  formatContent={formatContent}
-                                  isCodeBlock={true}
-                                  copyToClipboard={copyToClipboard}
-                                />
-                              )}
                               <Section
-                                title="Bugs or Errors"
-                                icon="🐞"
-                                content={review.gemini.bugs}
+                                title="GROQ"
+                                icon="📖"
+                                content={review.readability.groq}
                                 expandedSections={expandedSections}
                                 toggleSection={toggleSection}
-                                sectionId={`gemini-bugs-${review.filename}`}
+                                sectionId={`groq-readability-${review.filename}`}
                                 formatContent={formatContent}
                               />
                               <Section
-                                title="Security Concerns"
+                                title="GEMINI"
+                                icon="📖"
+                                content={review.readability.gemini}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`gemini-readability-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col h-full">
+                          <div className="bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
+                            <div className="bg-black text-white px-4 py-3">
+                              <h3 className="font-bold text-lg">Docstring Review</h3>
+                            </div>
+
+                            <div className="p-4 space-y-4">
+                              <Section
+                                title="GROQ"
+                                icon="📝"
+                                content={review.docstring.groq}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`groq-docstring-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                              <Section
+                                title="GEMINI"
+                                icon="📝"
+                                content={review.docstring.gemini}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`gemini-docstring-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col h-full">
+                          <div className="bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
+                            <div className="bg-black text-white px-4 py-3">
+                              <h3 className="font-bold text-lg">Security Review</h3>
+                            </div>
+
+                            <div className="p-4 space-y-4">
+                              <Section
+                                title="GROQ"
                                 icon="🔐"
-                                content={review.gemini.security}
+                                content={review.security.groq}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`groq-security-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                              <Section
+                                title="GEMINI"
+                                icon="🔐"
+                                content={review.security.gemini}
                                 expandedSections={expandedSections}
                                 toggleSection={toggleSection}
                                 sectionId={`gemini-security-${review.filename}`}
                                 formatContent={formatContent}
                               />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col h-full">
+                          <div className="bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
+                            <div className="bg-black text-white px-4 py-3">
+                              <h3 className="font-bold text-lg">Performance Review</h3>
+                            </div>
+
+                            <div className="p-4 space-y-4">
                               <Section
-                                title="Key Improvements & Explanations"
-                                icon="📋"
-                                content={[review.gemini.explanation]}
+                                title="GROQ"
+                                icon="⚙️"
+                                content={review.performance.groq}
                                 expandedSections={expandedSections}
                                 toggleSection={toggleSection}
-                                sectionId={`gemini-explanation-${review.filename}`}
+                                sectionId={`groq-performance-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                              <Section
+                                title="GEMINI"
+                                icon="⚙️"
+                                content={review.performance.gemini}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`gemini-performance-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col h-full">
+                          <div className="bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
+                            <div className="bg-black text-white px-4 py-3">
+                              <h3 className="font-bold text-lg">Structure Review</h3>
+                            </div>
+
+                            <div className="p-4 space-y-4">
+                              <Section
+                                title="GROQ"
+                                icon="📦"
+                                content={review.structure.groq}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`groq-structure-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                              <Section
+                                title="GEMINI"
+                                icon="📦"
+                                content={review.structure.gemini}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`gemini-structure-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col h-full">
+                          <div className="bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
+                            <div className="bg-black text-white px-4 py-3">
+                              <h3 className="font-bold text-lg">Error Handling Review</h3>
+                            </div>
+
+                            <div className="p-4 space-y-4">
+                              <Section
+                                title="GROQ"
+                                icon="🧯"
+                                content={review.error_handling.groq}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`groq-error-handling-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                              <Section
+                                title="GEMINI"
+                                icon="🧯"
+                                content={review.error_handling.gemini}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`gemini-error-handling-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col h-full">
+                          <div className="bg-white dark:bg-black rounded-lg shadow-md overflow-hidden border border-gray-200 dark:border-gray-700 h-full">
+                            <div className="bg-black text-white px-4 py-3">
+                              <h3 className="font-bold text-lg">Test Coverage Review</h3>
+                            </div>
+
+                            <div className="p-4 space-y-4">
+                              <Section
+                                title="GROQ"
+                                icon="✅"
+                                content={review.test_coverage.groq}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`groq-test-coverage-${review.filename}`}
+                                formatContent={formatContent}
+                              />
+                              <Section
+                                title="GEMINI"
+                                icon="✅"
+                                content={review.test_coverage.gemini}
+                                expandedSections={expandedSections}
+                                toggleSection={toggleSection}
+                                sectionId={`gemini-test-coverage-${review.filename}`}
                                 formatContent={formatContent}
                               />
                             </div>
@@ -414,7 +511,7 @@ const Section = ({
   copyToClipboard,
 }: SectionProps) => {
   return (
-    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden">
+    <div className="border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden shadow-sm">
       <button
         className="w-full flex items-center justify-between px-4 py-3 bg-gray-50 dark:bg-gray-800 text-left"
         onClick={() => toggleSection(sectionId)}
@@ -429,7 +526,7 @@ const Section = ({
       </button>
 
       {expandedSections[sectionId] && (
-        <div className="p-4 bg-white dark:bg-gray-900">
+        <div className="p-4 bg-white dark:bg-black">
           {isCodeBlock ? (
             <div className="relative">
               <button

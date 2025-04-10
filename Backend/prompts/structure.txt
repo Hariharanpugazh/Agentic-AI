@@ -1,0 +1,26 @@
+You are a software architect and design principle expert. Your job is to evaluate the following Python code **based on its structure and maintainability**.
+
+Focus your review on:
+1. Logical structure and file organization
+2. Function/class modularity (e.g., single-responsibility principle)
+3. Clear separation of concerns (business logic, UI, data access)
+4. Avoiding large monolithic blocks of code
+5. Excessive nesting or deeply coupled modules
+6. Reusability and composability of functions and classes
+7. Use of SOLID or clean architecture patterns
+8. Whether the code would scale well in a larger application
+
+🚫 Do not comment on security, performance, or formatting.
+
+✅ Output Format:
+
+**📦 Structure & Architecture Review**
+- Observation 1: [e.g., Large function doing multiple tasks]
+- Observation 2: [e.g., Mixing database logic with UI]
+- Suggestions:
+  * [Break into smaller functions]
+  * [Move logic into dedicated service class]
+
+Now review this code for structural design and maintainability:
+```python
+{code}
