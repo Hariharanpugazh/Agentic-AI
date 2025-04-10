@@ -13,8 +13,8 @@ from groq import Groq
 import google.generativeai as genai
 
 # === API KEYS ===
-GROQ_API_KEY = "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"
-GEMINI_API_KEY = "AIzaSyBr4OM66nCb7l96ESxnj3hHY3t43nzelOU"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 # === MODEL CONFIG ===
 GROQ_MODEL = "llama3-70b-8192"
