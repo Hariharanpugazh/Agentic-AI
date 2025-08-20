@@ -11,10 +11,11 @@ GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GROQ_MODEL = "llama3-70b-8192"
 
-# === Initialize LLM Clients ===
-client = Groq(api_key=GROQ_API_KEY)
-genai.configure(api_key=GEMINI_API_KEY)
-gemini_model = genai.GenerativeModel("gemini-1.5-flash-8b")
+# === Initialize LLM Clients (only if API keys are available) ===
+client = None
+gemini_model = None
+
+# We'll initialize clients inside functions to avoid import-time errors
 
 # === Agent List ===
 AGENT_NAMES = [
@@ -60,15 +61,25 @@ def fetch_file_content(owner, repo, filepath):
 
 # === Run on Groq ===
 def run_groq(prompt):
-    response = client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=[{"role": "user", "content": prompt}]
-    )
-    return response.choices[0].message.content.strip()
+    if not GROQ_API_KEY:
+        return "❌ Groq client not available - check GROQ_API_KEY in .env file"
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        response = client.chat.completions.create(
+            model=GROQ_MODEL,
+            messages=[{"role": "user", "content": prompt}]
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as e:
+        return f"❌ Groq error: {str(e)}"
 
 # === Run on Gemini ===
 def run_gemini(prompt):
+    if not GEMINI_API_KEY:
+        return "❌ Gemini client not available - check GEMINI_API_KEY in .env file"
     try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        gemini_model = genai.GenerativeModel("gemini-1.5-flash-8b")
         response = gemini_model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:
